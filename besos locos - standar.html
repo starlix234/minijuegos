@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persecución: Defensa y Victoria</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        }
+        #juegoCanvas {
+            border: 4px solid #fff;
+            border-radius: 12px;
+            background: linear-gradient(#1a1a2e, #16213e);
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.4);
+        }
+        #info {
+            color: #fff;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #ff0055;
+        }
+        #controles {
+            color: #ddd;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #ff0055;
+            padding: 30px 50px;
+            border: 3px solid #ff0055;
+            border-radius: 15px;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #fff;
+            display: none;
+            z-index: 10;
+        }
+        #victoria {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #33ff55;
+            padding: 30px 50px;
+            border: 3px solid #33ff55;
+            border-radius: 15px;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #fff;
+            display: none;
+            z-index: 10;
+        }
+        #contador {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">💀 Ella quiere tu alma | Usa W A S D para moverte 🚗</div>
+    <div id="controles">🟦 Recoge piezas ➜ 🖱️ Haz clic para lanzar 🟪</div>
+    <div id="contador">Piezas: <span id="cantidadPiezas">0</span> | Golpes: <span id="golpes">0</span>/5</div>
+    
+    <canvas id="juegoCanvas" width="900" height="600"></canvas>
+    
+    <div id="gameOver">💀 ¡ALMA SUCCIONADA! 💀<br><small style="font-size:18px; color:#fff">Reiniciando...</small></div>
+    <div id="victoria">🎉 ¡GANASTE! LA ALEJASTE 🎉<br><small style="font-size:18px; color:#fff">Reiniciando...</small></div>
+
+    <script>
+        const canvas = document.getElementById('juegoCanvas');
+        const ctx = canvas.getContext('2d');
+        const pantallaGO = document.getElementById('gameOver');
+        const pantallaVictoria = document.getElementById('victoria');
+        const textoPiezas = document.getElementById('cantidadPiezas');
+        const textoGolpes = document.getElementById('golpes');
+
+        // ==============================================
+        // 👉 DISEÑO DE PERSONAJES
+        // ==============================================
+        // ELLA: Auto rosa/oscuro, peligrosa
+        function dibujarChica(x, y, estado = 'normal') {
+            ctx.fillStyle = '#220022';
+            ctx.fillRect(x-30, y-14, 60, 25);
+            ctx.fillStyle = '#ff0088'; // Rosa fuerte
+            ctx.fillRect(x-26, y-10, 52, 17);
+            // Ruedas
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(x-18, y+12, 9, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+18, y+12, 9, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ff0088'; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(x-18, y+12, 9, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x+18, y+12, 9, 0, Math.PI*2); ctx.stroke();
+
+            // Cuerpo y cabello
+            ctx.fillStyle = '#f0c8a0';
+            ctx.beginPath(); ctx.arc(x, y-18, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x-10, y-32, 20, 22);
+            ctx.beginPath(); ctx.moveTo(x-10, y-10); ctx.lineTo(x-22, y+5); ctx.lineTo(x-8, y+2); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(x+10, y-10); ctx.lineTo(x+22, y+5); ctx.lineTo(x+8, y+2); ctx.closePath(); ctx.fill();
+            
+            // Ojos rojos
+            ctx.fillStyle = '#ff0055';
+            ctx.beginPath(); ctx.arc(x-5, y-20, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+5, y-20, 2.5, 0, Math.PI*2); ctx.fill();
+
+            if(estado === 'atacando') {
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 2;
+                for(let i=0; i<8; i++){
+                    let ang = Math.PI * 0.8 + (i * 0.2);
+                    ctx.beginPath();
+                    ctx.moveTo(x+25, y-5);
+                    ctx.lineTo(x+25 + Math.cos(ang)*40, y-5 + Math.sin(ang)*40);
+                    ctx.stroke();
+                }
+            }
+            if(estado === 'golpeada') {
+                ctx.fillStyle = '#ffff00';
+                ctx.font = '24px Arial';
+                ctx.fillText('💥', x-15, y-30);
+            }
+        }
+
+        // ÉL: Auto azul, se defiende
+        function dibujarChico(x, y, estado = 'vivo') {
+            ctx.fillStyle = '#002244';
+            ctx.fillRect(x-28, y-12, 56, 22);
+            ctx.fillStyle = '#3399ff'; // Azul brillante
+            ctx.fillRect(x-24, y-9, 48, 15);
+            // Ruedas
+            ctx.fillStyle = '#222';
+            ctx.beginPath(); ctx.arc(x-16, y+10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+16, y+10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#3399ff'; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(x-16, y+10, 8, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x+16, y+10, 8, 0, Math.PI*2); ctx.stroke();
+
+            // Cuerpo
+            ctx.fillStyle = '#f8d0a8';
+            ctx.beginPath(); ctx.arc(x, y-16, 11, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#224488';
+            ctx.fillRect(x-9, y-28, 18, 16);
+            ctx.fillStyle = '#3399ff';
+            ctx.fillRect(x-7, y-4, 14, 16);
+
+            // Ojos determinados
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(x-4, y-18, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+4, y-18, 2, 0, Math.PI*2); ctx.fill();
+
+            if(estado === 'muerto') {
+                ctx.fillStyle = '#888';
+                ctx.beginPath(); ctx.arc(x, y-16, 11, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '20px Arial';
+                ctx.fillText('☠️', x-10, y-20);
+            }
+        }
+
+        // ==============================================
+        // ⚙️ CONFIGURACIÓN Y VARIABLES
+        // ==============================================
+        const VELOCIDAD_CHICO = 5.5;
+        const VELOCIDAD_CHICA = 3.5;
+        const VELOCIDAD_PROYECTIL = 8;
+        const DISTANCIA_MUERTE = 45;
+        const GOLPES_NECESARIOS = 5; // Golpes necesarios para ganar
+        let juegoActivo = true;
+
+        // Controles: WASD
+        let teclas = { W: false, A: false, S: false, D: false };
+
+        // Personajes
+        let chica = { x: 100, y: 300, estado: 'normal', golpeadaTiempo: 0 };
+        let chico = { x: 750, y: 300, estado: 'vivo', piezas: 0 };
+
+        // Piezas para recoger
+        let piezas = [];
+        let tiempoGenerarPieza = 0;
+
+        // Proyectiles lanzados
+        let proyectiles = [];
+        let golpesRecibidos = 0;
+
+        // Puntero del mouse
+        let puntero = { x: 0, y: 0 };
+
+        // ==============================================
+        // ⌨️ CONTROLES: WASD Y CLIC RATÓN
+        // ==============================================
+        document.addEventListener('keydown', (e) => {
+            if(!juegoActivo) return;
+            if(e.key.toLowerCase() === 'w') teclas.W = true;
+            if(e.key.toLowerCase() === 'a') teclas.A = true;
+            if(e.key.toLowerCase() === 's') teclas.S = true;
+            if(e.key.toLowerCase() === 'd') teclas.D = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if(e.key.toLowerCase() === 'w') teclas.W = false;
+            if(e.key.toLowerCase() === 'a') teclas.A = false;
+            if(e.key.toLowerCase() === 's') teclas.S = false;
+            if(e.key.toLowerCase() === 'd') teclas.D = false;
+        });
+
+        // 🖱️ LANZAR PROYECTIL AL HACER CLIC
+        canvas.addEventListener('click', (e) => {
+            if(!juegoActivo || chico.piezas <= 0) return;
+            const rect = canvas.getBoundingClientRect();
+            puntero.x = e.clientX - rect.left;
+            puntero.y = e.clientY - rect.top;
+
+            // Calcular dirección hacia el clic
+            let dx = puntero.x - chico.x;
+            let dy = puntero.y - chico.y;
+            let dist = Math.hypot(dx, dy);
+            if(dist > 0) {
+                dx /= dist; dy /= dist;
+                // Crear proyectil
+                proyectiles.push({
+                    x: chico.x,
+                    y: chico.y,
+                    vx: dx * VELOCIDAD_PROYECTIL,
+                    vy: dy * VELOCIDAD_PROYECTIL,
+                    activo: true
+                });
+                chico.piezas--;
+                actualizarContadores();
+            }
+        });
+
+        // ==============================================
+        // 🧠 LÓGICA DEL JUEGO
+        // ==============================================
+        function actualizar() {
+            if(!juegoActivo) return;
+
+            // --- MOVIMIENTO CHICO (WASD) ---
+            if(teclas.W && chico.y > 10) chico.y -= VELOCIDAD_CHICO;
+            if(teclas.S && chico.y < canvas.height - 40) chico.y += VELOCIDAD_CHICO;
+            if(teclas.A && chico.x > 10) chico.x -= VELOCIDAD_CHICO;
+            if(teclas.D && chico.x < canvas.width - 40) chico.x += VELOCIDAD_CHICO;
+
+            // --- GENERAR PIEZAS AL AZAR ---
+            tiempoGenerarPieza++;
+            if(tiempoGenerarPieza > 120) { // Cada 2 segundos aprox
+                piezas.push({
+                    x: Math.random() * (canvas.width - 50) + 25,
+                    y: Math.random() * (canvas.height - 50) + 25,
+                    activa: true
+                });
+                tiempoGenerarPieza = 0;
+            }
+
+            // --- RECOGER PIEZAS ---
+            piezas.forEach((p, i) => {
+                if(p.activa) {
+                    let dist = Math.hypot(chico.x - p.x, chico.y - p.y);
+                    if(dist < 30) {
+                        p.activa = false;
+                        chico.piezas++;
+                        actualizarContadores();
+                    }
+                }
+            });
+
+            // --- ACTUALIZAR PROYECTILES Y COLISIÓN CON ELLA ---
+            proyectiles.forEach((proy, i) => {
+                if(proy.activo) {
+                    proy.x += proy.vx;
+                    proy.y += proy.vy;
+                    // Si sale de pantalla
+                    if(proy.x < 0 || proy.x > canvas.width || proy.y < 0 || proy.y > canvas.height) {
+                        proy.activo = false;
+                    }
+                    // Golpe a la chica
+                    let distGolpe = Math.hypot(proy.x - chica.x, proy.y - chica.y);
+                    if(distGolpe < 30) {
+                        proy.activo = false;
+                        golpesRecibidos++;
+                        chica.estado = 'golpeada';
+                        chica.golpeadaTiempo = 60; // Quedará golpeada 1 segundo
+                        actualizarContadores();
+                        // VERIFICAR SI GANÓ
+                        if(golpesRecibidos >= GOLPES_NECESARIOS) {
+                            victoria();
+                        }
+                    }
+                }
+            });
+
+            // --- TIEMPO DE GOLPEADA ---
+            if(chica.golpeadaTiempo > 0) {
+                chica.golpeadaTiempo--;
+                if(chica.golpeadaTiempo === 0) chica.estado = 'normal';
+            }
+
+            // --- MOVIMIENTO CHICA (Persigue, pero más lenta si fue golpeada) ---
+            if(chica.estado !== 'golpeada') {
+                let dxChica = chico.x - chica.x;
+                let dyChica = chico.y - chica.y;
+                let distChica = Math.hypot(dxChica, dyChica);
+                
+                if(distChica > 2) {
+                    let velocidadReal = VELOCIDAD_CHICA * (chica.estado === 'golpeada' ? 0.2 : 1);
+                    chica.x += (dxChica / distChica) * velocidadReal;
+                    chica.y += (dyChica / distChica) * velocidadReal;
+                }
+
+                // ⚠️ SI TE TOCA = MUERTE
+                if(distChica < DISTANCIA_MUERTE) {
+                    chico.estado = 'muerto';
+                    chica.estado = 'atacando';
+                    juegoActivo = false;
+                    mostrarGameOver();
+                }
+            }
+        }
+
+        // ==============================================
+        // 🎨 DIBUJAR TODO
+        // ==============================================
+        function dibujar() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            // Fondo carretera
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 260, canvas.width, 80);
+            ctx.strokeStyle = '#444'; ctx.lineWidth=2;
+            for(let i=0; i<canvas.width; i+=70) {
+                ctx.beginPath(); ctx.moveTo(i, 300); ctx.lineTo(i+35, 300); ctx.stroke();
+            }
+            // Estrellas
+            ctx.fillStyle = '#fff';
+            for(let i=0; i<50; i++){
+                ctx.beginPath(); ctx.arc(Math.random()*canvas.width, Math.random()*250, Math.random()*1.5, 0, Math.PI*2); ctx.fill();
+            }
+
+            // Dibujar piezas
+            piezas.forEach(p => {
+                if(p.activa) {
+                    ctx.fillStyle = '#ffff33';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#ff9900';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill();
+                }
+            });
+
+            // Dibujar proyectiles
+            proyectiles.forEach(p => {
+                if(p.activo) {
+                    ctx.fillStyle = '#cc33ff';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth=1; ctx.stroke();
+                }
+            });
+
+            // Dibujar personajes
+            dibujarChica(chica.x, chica.y, chica.estado);
+            dibujarChico(chico.x, chico.y, chico.estado);
+
+            // Puntero visual
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath(); ctx.arc(puntero.x, puntero.y, 7, 0, Math.PI*2);
+            ctx.strokeStyle='#33ff55'; ctx.lineWidth=2; ctx.stroke();
+        }
+
+        // ==============================================
+        // 🏆 SISTEMA DE VICTORIA Y DERROTA
+        // ==============================================
+        function actualizarContadores() {
+            textoPiezas.textContent = chico.piezas;
+            textoGolpes.textContent = golpesRecibidos;
+        }
+
+        function victoria() {
+            juegoActivo = false;
+            pantallaVictoria.style.display = 'block';
+            setTimeout(() => reiniciarJuego(), 3000);
+        }
+
+        function mostrarGameOver() {
+            pantallaGO.style.display = 'block';
+            setTimeout(() => reiniciarJuego(), 3000);
+        }
+
+        function reiniciarJuego() {
+            // Reiniciar posiciones y variables
+            chica.x = 100; chica.y = 300; chica.estado = 'normal'; chica.golpeadaTiempo = 0;
+            chico.x = 750; chico.y = 300; chico.estado = 'vivo'; chico.piezas = 0;
+            piezas = []; proyectiles = []; golpesRecibidos = 0;
+            tiempoGenerarPieza = 0;
+            juegoActivo = true;
+            
+            pantallaGO.style.display = 'none';
+            pantallaVictoria.style.display = 'none';
+            actualizarContadores();
+        }
+
+        // ==============================================
+        // 🔄 BUCLE PRINCIPAL
+        // ==============================================
+        function bucleJuego() {
+            actualizar();
+            dibujar();
+            requestAnimationFrame(bucleJuego);
+        }
+        bucleJuego();
+    </script>
+</body>
+</html>

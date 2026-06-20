@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persecución: Arma y Munición</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+        }
+        #juegoCanvas {
+            border: 4px solid #fff;
+            border-radius: 12px;
+            background: linear-gradient(#1a1a2e, #16213e);
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.4);
+        }
+        #info {
+            color: #fff;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #ff0055;
+        }
+        #controles {
+            color: #ddd;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #ff0055;
+            padding: 30px 50px;
+            border: 3px solid #ff0055;
+            border-radius: 15px;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #fff;
+            display: none;
+            z-index: 10;
+        }
+        #victoria {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #33ff55;
+            padding: 30px 50px;
+            border: 3px solid #33ff55;
+            border-radius: 15px;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #fff;
+            display: none;
+            z-index: 10;
+        }
+        #panelInfo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 18px;
+            border-radius: 10px;
+            color: #fff;
+            border: 2px solid #3399ff;
+            box-shadow: 0 0 10px rgba(51, 153, 255, 0.3);
+        }
+        .texto-info {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 4px 0;
+        }
+        #recargando {
+            color: #ffcc00;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">💀 Ella quiere tu alma | Usa W A S D para moverte 🚗</div>
+    <div id="controles">🟡 Recoge balas | 🖱️ Clic para disparar | 🔄 R para recargar</div>
+
+    <div id="panelInfo">
+        <div class="texto-info">🔫 Munición: <span id="municionActual">0</span> / <span id="capacidadCargador">12</span></div>
+        <div class="texto-info">📦 Balas totales: <span id="balasReserva">0</span></div>
+        <div class="texto-info">🎯 Golpes: <span id="golpes">0</span>/50</div>
+        <div id="recargando">⏳ RECARGANDO...</div>
+    </div>
+    
+    <canvas id="juegoCanvas" width="900" height="600"></canvas>
+    
+    <div id="gameOver">💀 ¡ALMA SUCCIONADA! 💀<br><small style="font-size:18px; color:#fff">Reiniciando...</small></div>
+    <div id="victoria">🎉 ¡GANASTE! LA ALEJASTE 🎉<br><small style="font-size:18px; color:#fff">Reiniciando...</small></div>
+
+    <script>
+        const canvas = document.getElementById('juegoCanvas');
+        const ctx = canvas.getContext('2d');
+        const pantallaGO = document.getElementById('gameOver');
+        const pantallaVictoria = document.getElementById('victoria');
+        const textoMunicion = document.getElementById('municionActual');
+        const textoReserva = document.getElementById('balasReserva');
+        const textoGolpes = document.getElementById('golpes');
+        const textoRecargando = document.getElementById('recargando');
+
+        // ==============================================
+        // 👉 DISEÑO DE PERSONAJES Y ARMA
+        // ==============================================
+        // ELLA: Auto rosa/oscuro, peligrosa
+        function dibujarChica(x, y, estado = 'normal') {
+            ctx.fillStyle = '#220022';
+            ctx.fillRect(x-30, y-14, 60, 25);
+            ctx.fillStyle = '#ff0088';
+            ctx.fillRect(x-26, y-10, 52, 17);
+            // Ruedas
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(x-18, y+12, 9, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+18, y+12, 9, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#ff0088'; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(x-18, y+12, 9, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x+18, y+12, 9, 0, Math.PI*2); ctx.stroke();
+
+            // Cuerpo y cabello
+            ctx.fillStyle = '#f0c8a0';
+            ctx.beginPath(); ctx.arc(x, y-18, 12, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x-10, y-32, 20, 22);
+            ctx.beginPath(); ctx.moveTo(x-10, y-10); ctx.lineTo(x-22, y+5); ctx.lineTo(x-8, y+2); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(x+10, y-10); ctx.lineTo(x+22, y+5); ctx.lineTo(x+8, y+2); ctx.closePath(); ctx.fill();
+            
+            // Ojos rojos
+            ctx.fillStyle = '#ff0055';
+            ctx.beginPath(); ctx.arc(x-5, y-20, 2.5, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+5, y-20, 2.5, 0, Math.PI*2); ctx.fill();
+
+            if(estado === 'atacando') {
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 2;
+                for(let i=0; i<8; i++){
+                    let ang = Math.PI * 0.8 + (i * 0.2);
+                    ctx.beginPath();
+                    ctx.moveTo(x+25, y-5);
+                    ctx.lineTo(x+25 + Math.cos(ang)*40, y-5 + Math.sin(ang)*40);
+                    ctx.stroke();
+                }
+            }
+            if(estado === 'golpeada') {
+                ctx.fillStyle = '#ffff00';
+                ctx.font = '24px Arial';
+                ctx.fillText('💥', x-15, y-30);
+            }
+        }
+
+        // ÉL: Auto azul, con arma
+        function dibujarChico(x, y, estado = 'vivo') {
+            ctx.fillStyle = '#002244';
+            ctx.fillRect(x-28, y-12, 56, 22);
+            ctx.fillStyle = '#3399ff';
+            ctx.fillRect(x-24, y-9, 48, 15);
+            // Ruedas
+            ctx.fillStyle = '#222';
+            ctx.beginPath(); ctx.arc(x-16, y+10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+16, y+10, 8, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#3399ff'; ctx.lineWidth=2;
+            ctx.beginPath(); ctx.arc(x-16, y+10, 8, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(x+16, y+10, 8, 0, Math.PI*2); ctx.stroke();
+
+            // Cuerpo
+            ctx.fillStyle = '#f8d0a8';
+            ctx.beginPath(); ctx.arc(x, y-16, 11, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#224488';
+            ctx.fillRect(x-9, y-28, 18, 16);
+            ctx.fillStyle = '#3399ff';
+            ctx.fillRect(x-7, y-4, 14, 16);
+
+            // Ojos
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(x-4, y-18, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x+4, y-18, 2, 0, Math.PI*2); ctx.fill();
+
+            // 🔫 DIBUJAR ARMA
+            ctx.fillStyle = '#222';
+            ctx.fillRect(x+8, y-8, 22, 6); // Cuerpo arma
+            ctx.fillStyle = '#555';
+            ctx.fillRect(x+25, y-10, 8, 10); // Cañón
+            ctx.fillStyle = '#111';
+            ctx.beginPath(); ctx.arc(x+12, y-5, 3, 0, Math.PI*2); ctx.fill(); // Detalle
+
+            if(estado === 'muerto') {
+                ctx.fillStyle = '#888';
+                ctx.beginPath(); ctx.arc(x, y-16, 11, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '20px Arial';
+                ctx.fillText('☠️', x-10, y-20);
+            }
+        }
+
+        // ==============================================
+        // ⚙️ CONFIGURACIÓN Y VARIABLES
+        // ==============================================
+        const VELOCIDAD_CHICO = 5.5;
+        const VELOCIDAD_CHICA = 3.5;
+        const VELOCIDAD_BALA = 10;
+        const DISTANCIA_MUERTE = 45;
+        const GOLPES_NECESARIOS = 50; // 👉 50 golpes para ganar
+        const CAPACIDAD_CARGADOR = 12; // Balas por cargador
+        const TIEMPO_RECARGA = 120; // 2 segundos recargando
+        let juegoActivo = true;
+        let recargando = false;
+        let tiempoRecarga = 0;
+
+        // Controles: WASD
+        let teclas = { W: false, A: false, S: false, D: false };
+
+        // Personajes
+        let chica = { x: 100, y: 300, estado: 'normal', golpeadaTiempo: 0 };
+        let chico = { 
+            x: 750, y: 300, estado: 'vivo', 
+            municionActual: 0,    // Balas en el arma
+            balasReserva: 0       // Balas guardadas
+        };
+
+        // Balas para recoger
+        let balas = [];
+        let tiempoGenerarBala = 0;
+
+        // Proyectiles disparados
+        let disparos = [];
+        let golpesRecibidos = 0;
+
+        // Puntero del mouse
+        let puntero = { x: 0, y: 0 };
+
+        // ==============================================
+        // ⌨️ CONTROLES: WASD, R Y CLIC
+        // ==============================================
+        document.addEventListener('keydown', (e) => {
+            if(!juegoActivo || recargando) return;
+            if(e.key.toLowerCase() === 'w') teclas.W = true;
+            if(e.key.toLowerCase() === 'a') teclas.A = true;
+            if(e.key.toLowerCase() === 's') teclas.S = true;
+            if(e.key.toLowerCase() === 'd') teclas.D = true;
+            // 🔄 RECARGAR
+            if(e.key.toLowerCase() === 'r') {
+                if(chico.balasReserva > 0 && chico.municionActual < CAPACIDAD_CARGADOR) {
+                    iniciarRecarga();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if(e.key.toLowerCase() === 'w') teclas.W = false;
+            if(e.key.toLowerCase() === 'a') teclas.A = false;
+            if(e.key.toLowerCase() === 's') teclas.S = false;
+            if(e.key.toLowerCase() === 'd') teclas.D = false;
+        });
+
+        // 🖱️ DISPARAR
+        canvas.addEventListener('click', (e) => {
+            if(!juegoActivo || recargando || chico.municionActual <= 0) return;
+            const rect = canvas.getBoundingClientRect();
+            puntero.x = e.clientX - rect.left;
+            puntero.y = e.clientY - rect.top;
+
+            // Dirección del disparo
+            let dx = puntero.x - chico.x;
+            let dy = puntero.y - chico.y;
+            let dist = Math.hypot(dx, dy);
+            if(dist > 0) {
+                dx /= dist; dy /= dist;
+                disparos.push({ x: chico.x + 15, y: chico.y - 5, vx: dx * VELOCIDAD_BALA, vy: dy * VELOCIDAD_BALA });
+                chico.municionActual--;
+                actualizarInterfaz();
+            }
+        });
+
+        // ==============================================
+        // 🔄 SISTEMA DE RECARGA
+        // ==============================================
+        function iniciarRecarga() {
+            recargando = true;
+            tiempoRecarga = TIEMPO_RECARGA;
+            textoRecargando.style.display = 'block';
+        }
+
+        function procesarRecarga() {
+            tiempoRecarga--;
+            if(tiempoRecarga <= 0) {
+                // Cuántas balas caben en el cargador
+                let espacioLibre = CAPACIDAD_CARGADOR - chico.municionActual;
+                let balasAGastar = Math.min(espacioLibre, chico.balasReserva);
+                
+                chico.municionActual += balasAGastar;
+                chico.balasReserva -= balasAGastar;
+
+                recargando = false;
+                textoRecargando.style.display = 'none';
+                actualizarInterfaz();
+            }
+        }
+
+        // ==============================================
+        // 🧠 LÓGICA DEL JUEGO
+        // ==============================================
+        function actualizar() {
+            if(!juegoActivo) return;
+            if(recargando) { procesarRecarga(); return; }
+
+            // --- MOVIMIENTO CHICO (WASD) ---
+            if(teclas.W && chico.y > 10) chico.y -= VELOCIDAD_CHICO;
+            if(teclas.S && chico.y < canvas.height - 40) chico.y += VELOCIDAD_CHICO;
+            if(teclas.A && chico.x > 10) chico.x -= VELOCIDAD_CHICO;
+            if(teclas.D && chico.x < canvas.width - 40) chico.x += VELOCIDAD_CHICO;
+
+            // --- GENERAR BALAS AL AZAR ---
+            tiempoGenerarBala++;
+            if(tiempoGenerarBala > 80) { // Más seguido
+                balas.push({
+                    x: Math.random() * (canvas.width - 50) + 25,
+                    y: Math.random() * (canvas.height - 50) + 25,
+                    activa: true
+                });
+                tiempoGenerarBala = 0;
+            }
+
+            // --- RECOGER BALAS ---
+            balas.forEach((b, i) => {
+                if(b.activa) {
+                    let dist = Math.hypot(chico.x - b.x, chico.y - b.y);
+                    if(dist < 30) {
+                        b.activa = false;
+                        chico.balasReserva += 5; // Cada caja da 5 balas
+                        actualizarInterfaz();
+                    }
+                }
+            });
+
+            // --- ACTUALIZAR DISPAROS Y COLISIÓN ---
+            disparos.forEach((d, i) => {
+                d.x += d.vx;
+                d.y += d.vy;
+                // Salida de pantalla
+                if(d.x < 0 || d.x > canvas.width || d.y < 0 || d.y > canvas.height) {
+                    disparos.splice(i, 1);
+                }
+                // Golpe a la chica
+                let distGolpe = Math.hypot(d.x - chica.x, d.y - chica.y);
+                if(distGolpe < 30) {
+                    disparos.splice(i, 1);
+                    golpesRecibidos++;
+                    chica.estado = 'golpeada';
+                    chica.golpeadaTiempo = 40;
+                    actualizarInterfaz();
+                    // ✅ VICTORIA
+                    if(golpesRecibidos >= GOLPES_NECESARIOS) {
+                        victoria();
+                    }
+                }
+            });
+
+            // --- TIEMPO DE ATURDIMIENTO ---
+            if(chica.golpeadaTiempo > 0) {
+                chica.golpeadaTiempo--;
+                if(chica.golpeadaTiempo === 0) chica.estado = 'normal';
+            }
+
+            // --- MOVIMIENTO CHICA ---
+            if(chica.estado !== 'golpeada') {
+                let dxChica = chico.x - chica.x;
+                let dyChica = chico.y - chica.y;
+                let distChica = Math.hypot(dxChica, dyChica);
+                
+                if(distChica > 2) {
+                    let velReal = VELOCIDAD_CHICA * (chica.estado === 'golpeada' ? 0.1 : 1);
+                    chica.x += (dxChica / distChica) * velReal;
+                    chica.y += (dyChica / distChica) * velReal;
+                }
+
+                // ⚠️ MUERTE
+                if(distChica < DISTANCIA_MUERTE) {
+                    chico.estado = 'muerto';
+                    chica.estado = 'atacando';
+                    juegoActivo = false;
+                    mostrarGameOver();
+                }
+            }
+        }
+
+        // ==============================================
+        // 🎨 DIBUJAR TODO
+        // ==============================================
+        function dibujar() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            // Fondo carretera
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 260, canvas.width, 80);
+            ctx.strokeStyle = '#444'; ctx.lineWidth=2;
+            for(let i=0; i<canvas.width; i+=70) {
+                ctx.beginPath(); ctx.moveTo(i, 300); ctx.lineTo(i+35, 300); ctx.stroke();
+            }
+            // Estrellas
+            ctx.fillStyle = '#fff';
+            for(let i=0; i<50; i++){
+                ctx.beginPath(); ctx.arc(Math.random()*canvas.width, Math.random()*250, Math.random()*1.5, 0, Math.PI*2); ctx.fill();
+            }
+
+            // Dibujar balas para recoger
+            balas.forEach(b => {
+                if(b.activa) {
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.fillRect(b.x-4, b.y-8, 8, 16); // Forma de bala
+                    ctx.fillStyle = '#ff9900';
+                    ctx.beginPath(); ctx.arc(b.x, b.y-8, 4, 0, Math.PI*2); ctx.fill();
+                }
+            });
+
+            // Dibujar disparos
+            disparos.forEach(d => {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(d.x-2, d.y-4, 4, 8);
+                ctx.fillStyle = '#ff3300';
+                ctx.beginPath(); ctx.arc(d.x, d.y, 3, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Dibujar personajes
+            dibujarChica(chica.x, chica.y, chica.estado);
+            dibujarChico(chico.x, chico.y, chico.estado);
+
+            // Puntero
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.beginPath(); ctx.arc(puntero.x, puntero.y, 7, 0, Math.PI*2);
+            ctx.strokeStyle='#ff3333'; ctx.lineWidth=2; ctx.stroke();
+        }
+
+        // ==============================================
+        // 🏆 INTERFAZ Y ESTADOS
+        // ==============================================
+        function actualizarInterfaz() {
+            textoMunicion.textContent = chico.municionActual;
+            textoReserva.textContent = chico.balasReserva;
+            textoGolpes.textContent = golpesRecibidos;
+        }
+
+        function victoria() {
+            juegoActivo = false;
+            pantallaVictoria.style.display = 'block';
+            setTimeout(() => reiniciarJuego(), 3000);
+        }
+
+        function mostrarGameOver() {
+            pantallaGO.style.display = 'block';
+            setTimeout(() => reiniciarJuego(), 3000);
+        }
+
+        function reiniciarJuego() {
+            chica.x = 100; chica.y = 300; chica.estado = 'normal'; chica.golpeadaTiempo = 0;
+            chico.x = 750; chico.y = 300; chico.estado = 'vivo'; 
+            chico.municionActual = 0; chico.balasReserva = 0;
+            balas = []; disparos = []; golpesRecibidos = 0;
+            tiempoGenerarBala = 0; recargando = false;
+            textoRecargando.style.display = 'none';
+            juegoActivo = true;
+            
+            pantallaGO.style.display = 'none';
+            pantallaVictoria.style.display = 'none';
+            actualizarInterfaz();
+        }
+
+        // ==============================================
+        // 🔄 BUCLE PRINCIPAL
+        // ==============================================
+        function bucleJuego() {
+            actualizar();
+            dibujar();
+            requestAnimationFrame(bucleJuego);
+        }
+        bucleJuego();
+    </script>
+</body>
+</html>
